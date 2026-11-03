@@ -18,42 +18,36 @@ URL it prints. Sound needs a user tap first, which the sound check provides.
 
 `npm run build` makes a static `dist/` folder (about 40 KB) you can host anywhere. `npm run preview` serves it locally.
 
-## Deploy (Cloudflare Pages)
+## Deploy (Cloudflare)
 
 It is a plain static site: no server, no environment variables, no redirects needed (there is one page and
-no URL routing). Free plan is enough. Config already in the repo:
+no URL routing). Free plan is enough. It deploys as a Cloudflare Worker that serves static assets, which is
+what the dashboard's Git flow creates. Config already in the repo:
 
 - `vite.config.js`: `base: './'`, so the build works at a domain root or under a sub-path.
 - `public/_headers`: long caching for `/assets/*` and a few safe security headers. Copied into `dist/`.
-- `wrangler.toml`: project name `latent`, output dir `dist`.
+- `wrangler.toml`: Worker name `latent`, serves `./dist`. The name must match the project name in Cloudflare.
 - `.node-version`: Node 20 for the Cloudflare build.
 
 ### Option A: connected to Git (rebuilds on every push)
 
-1. Push this folder (the one with `package.json`) to a GitHub or GitLab repo.
-2. Cloudflare dashboard > Workers & Pages > Create > Pages > Connect to Git, pick the repo.
-3. Build settings: Framework preset `Vite` (or None), Build command `npm run build`, Build output directory
-   `dist`. If the repo root is above this folder, set Root directory to this folder's path.
-4. Save and Deploy. The site appears at `https://latent.pages.dev` (or the name you chose). Every push to the
-   main branch redeploys; other branches get preview URLs.
+Repo: https://github.com/mathuresha/latent
+
+1. Cloudflare dashboard > Workers & Pages > Create > Import a repository, pick the repo.
+2. Project name `latent`. Build command `npm run build`. Deploy command `npx wrangler deploy`. Root
+   directory empty.
+3. Deploy. The site appears at `https://latent.<your-subdomain>.workers.dev`. Every push to `main` redeploys.
 
 ### Option B: direct upload (no Git)
 
-Either drag and drop: run `npm run build`, then Workers & Pages > Create > Pages > Upload assets, name the
-project and drop the `dist` folder.
-
-Or from the command line:
-
 ```
 npx wrangler login        # once, opens the browser
-npm run deploy            # builds, then runs: npx wrangler pages deploy dist
+npm run deploy            # builds, then runs: npx wrangler deploy
 ```
-
-The first deploy asks to create the `latent` project. Run `npm run deploy` again to ship an update.
 
 ### Custom domain
 
-In the Pages project: Custom domains > Set up a custom domain. HTTPS is automatic.
+In the project: Settings > Domains & Routes > Add > Custom domain. HTTPS is automatic.
 
 ### Other hosts
 

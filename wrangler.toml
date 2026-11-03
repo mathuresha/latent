@@ -1,4 +1,8 @@
-# Used by `npx wrangler pages deploy` and by Cloudflare Pages Git builds.
+# Cloudflare Workers static-assets config, used by `npx wrangler deploy`
+# (the dashboard's Git builds run this after `npm run build`).
+# `name` must match the Worker/project name in the Cloudflare dashboard.
 name = "latent"
 compatibility_date = "2026-10-01"
-pages_build_output_dir = "./dist"
+
+[assets]
+directory = "./dist"
