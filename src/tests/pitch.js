@@ -1,22 +1,26 @@
 // PITCH DISCRIMINATION
-// Two pure tones, which one is higher? Fixed set of frequency gaps (method of constant
-// stimuli, no adaptive staircase), then a maximum-likelihood threshold fit.
+// Two pure tones, which one is higher? Adaptive: the gap starts large and shrinks as you get rounds
+// right (3-down/1-up staircase, src/core/staircase.js), then a maximum-likelihood threshold fit on
+// every round.
 // Design, sources and assumptions: docs/NORMS.md ("Pitch").
 
 import { playTone, sleep } from '../core/audio.js';
-import { normCdf, clamp, rand, shuffle } from '../core/stats.js';
+import { normCdf, clamp, rand } from '../core/stats.js';
+import { makeStaircase } from '../core/staircase.js';
+import { PITCH_LOG10_BIAS } from '../data/adaptive-calibration.js';
+import { answerButtons, setProgress } from '../core/a11y.js';
 
 export const meta = {
   id: 'pitch',
   title: 'Pitch discrimination',
   short: 'Pitch',
   blurb: 'Which of two notes is higher? Tiny gaps, sharp ears.',
-  time: 'About 90 seconds',
+  time: 'About a minute',
   needsAudio: true,
   instructions: [
     'You will hear two notes, one after the other.',
-    'Tap which one was <b>higher</b>. Some gaps are tiny. Guess when you are unsure.',
-    '40 short rounds. Headphones work best.',
+    'Tap which one was <b>higher</b>. It starts easy and the gap shrinks as you get them right. Guess when you are unsure.',
+    '30 short rounds. Headphones work best.',
   ],
   // wording used on the card
   outperform: 'people hear pitch less finely than you',
@@ -24,10 +28,15 @@ export const meta = {
   verb: 'ear',
 };
 
-// Frequency differences tested, in % of the base frequency (geometric steps).
-export const LEVELS = [5, 2.5, 1.25, 0.6, 0.3];
-export const TRIALS_PER_LEVEL = 8;
-export const PRACTICE_LEVEL = 10;
+// Ladder of frequency differences, in % of the base frequency: 20% down to about 0.1%, each step a
+// factor of sqrt(2). Real rounds start at 10% (easy for almost everyone), get one step harder per right
+// answer until the first miss, then 3-down/1-up (settles near 79% right). In simulation this was the most
+// repeatable of the rules we tried (see scripts/simulate.js).
+export const LADDER = Array.from({ length: 16 }, (_, k) => +(20 / Math.SQRT2 ** k).toPrecision(3));
+export const START_INDEX = 2; // 10%
+export const TRIALS = 30;
+export const STAIR = { down: 3, warmupStep: 1 };
+export const PRACTICE_LEVEL = 20;
 const LAPSE = 0.03;
 
 // Population anchor: median untrained listener ~1.9% (resolved complex tones, adaptive 3AFC;
@@ -55,7 +64,8 @@ export function fitThreshold(levels) {
 }
 
 export function score(raw) {
-  const th = clamp(fitThreshold(raw.levels), 0.1, 30);
+  // the fit on staircase data reads a little low; undo that measured bias (scripts/simulate.js)
+  const th = clamp(fitThreshold(raw.levels) / 10 ** PITCH_LOG10_BIAS, 0.1, 30);
   const z = (Math.log10(th) - Math.log10(NORM.medianPct)) / NORM.sdLog10;
   const topPct = 100 * normCdf(z); // lower threshold = rarer
   return {
@@ -74,23 +84,26 @@ export function detail(s) {
 
 export async function run(root) {
   root.innerHTML = `
-    <div class="prompt" id="p-msg">Get ready…</div>
-    <div class="btnrow">
-      <button class="btn big" data-a="1" disabled>1 · First</button>
-      <button class="btn big" data-a="2" disabled>2 · Second</button>
+    <div class="prompt" id="p-msg" aria-live="polite">Get ready…</div>
+    <div class="btnrow" role="group" aria-label="Which note was higher?">
+      <button class="btn big" data-a="1" disabled aria-label="The first note was higher" aria-keyshortcuts="1">1 · First</button>
+      <button class="btn big" data-a="2" disabled aria-label="The second note was higher" aria-keyshortcuts="2">2 · Second</button>
     </div>
-    <div class="feedback" id="p-fb"></div>
-    <div class="progress"><div class="bar" id="p-bar"></div></div>`;
+    <p class="keys small">Keyboard: press 1 or 2.</p>
+    <div class="feedback" id="p-fb" aria-live="polite"></div>
+    <div class="progress" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bar" id="p-bar"></div></div>`;
   const msg = root.querySelector('#p-msg');
   const fb = root.querySelector('#p-fb');
   const bar = root.querySelector('#p-bar');
   const btns = [...root.querySelectorAll('button')];
+  const ab = answerButtons(btns);
 
   const answer = () => new Promise((res) => {
-    const done = (a) => { window.removeEventListener('keydown', key); btns.forEach((b) => (b.disabled = true)); res(a); };
+    const done = (a) => { window.removeEventListener('keydown', key); ab.disable(); res(a); };
     const key = (e) => { if (e.key === '1' || e.key === '2') done(Number(e.key)); };
     window.addEventListener('keydown', key);
-    btns.forEach((b) => { b.disabled = false; b.onclick = () => done(Number(b.dataset.a)); });
+    btns.forEach((b) => { b.onclick = () => done(Number(b.dataset.a)); });
+    ab.enable();
   });
 
   async function trial(x) {
@@ -118,14 +131,16 @@ export async function run(root) {
   msg.textContent = 'Now the real thing. No feedback from here.';
   await sleep(1400);
 
-  const order = shuffle(LEVELS.flatMap((x) => Array(TRIALS_PER_LEVEL).fill(x)));
-  const tally = new Map(LEVELS.map((x) => [x, { x, n: 0, k: 0 }]));
-  for (let i = 0; i < order.length; i++) {
-    const ok = await trial(order[i]);
-    const t = tally.get(order[i]);
+  const stair = makeStaircase({ levels: LADDER, start: START_INDEX, ...STAIR });
+  const tally = new Map();
+  for (let i = 0; i < TRIALS; i++) {
+    const x = stair.level;
+    const ok = await trial(x);
+    const t = tally.get(x) || tally.set(x, { x, n: 0, k: 0 }).get(x);
     t.n++; if (ok) t.k++;
-    bar.style.width = `${((i + 1) / order.length) * 100}%`;
+    stair.update(ok);
+    setProgress(bar, (i + 1) / TRIALS);
     await sleep(250);
   }
-  return { levels: [...tally.values()] };
+  return { levels: [...tally.values()], finest: stair.peak };
 }

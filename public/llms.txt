@@ -1,0 +1,8 @@
+# Latent
+
+> Latent is a free web app with three short perceptual tests (pitch discrimination, visual working memory and mental rotation). Each test takes about a minute and a half and tells you how rare your result is compared with published research norms, for example "Top 0.4%", then suggests a hobby worth trying if you are strong at it.
+
+- Runs entirely in the browser. No accounts, no analytics, and nothing is sent to a server.
+- Made for ages 18 and up. Results are for fun and are not a medical, hearing or IQ test.
+- Rarity comes from published psychophysics research on lab samples and is shown no finer than "Top 0.5%".
+- The method, sources and known limits are explained on the "How we score" page: /#how-we-score

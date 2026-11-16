@@ -2,6 +2,7 @@
 // Colours come from the active theme (src/core/theme.js), so the saved PNG matches what the user sees.
 
 import { palette } from './theme.js';
+import { drawLogo, LOGO_W, LOGO_H } from './logo.js';
 
 const FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
 
@@ -85,9 +86,8 @@ export function renderCard({ name, result, colors = palette() }) {
   let dy = 1620;
   for (const l of wrap(g, result.detail, 860)) { g.fillText(l, 110, dy); dy += 56; }
 
-  // wordmark
-  g.fillStyle = INK; setFont(g, 700, 56, '10px'); g.textAlign = 'center';
-  g.fillText('LATENT', 540, 1840);
-  g.textAlign = 'left';
+  // logo, centred at the foot of the card
+  const LH = 92, LW = (LH * LOGO_W) / LOGO_H;
+  drawLogo(g, 540 - LW / 2, 1766, LH, colors);
   return cv;
 }

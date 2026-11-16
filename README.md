@@ -62,9 +62,10 @@ relative base path already handles the `/<repo>/` sub-path.
 | `src/tests/pitch.js`, `memory.js`, `rotation.js` | One file per test: task, scoring, norms and copy. Each owner can work alone. |
 | `src/core/card.js` | Result card renderer (option 4, sticker style), 1080 x 1920 canvas. Uses the active theme's colours. |
 | `src/core/theme.js` | Light / dark theme: follows the system until the user taps the toggle, then remembers the choice. Colours live as CSS variables in `src/styles.css`; canvas code reads them through `palette()`. |
+| `src/core/staircase.js` | Adaptive difficulty shared by all three tests: start easy, harder after right answers, easier after a miss. |
 | `src/core/copy.js` | Turns a percentile into the words on the card. Holds the 0.5% rarity floor. |
 | `src/data/hobbies.js` | Draft hobby lists. |
-| `scripts/simulate.js` (`npm run simulate`) | Repeatability checks and the rotation norm table. |
+| `scripts/simulate.js` (`npm run simulate`) | Repeatability checks, the adaptive-bias corrections (`src/data/adaptive-calibration.js`) and the rotation norm table. Re-run after changing any test's design. |
 | `vite.config.js`, `wrangler.toml`, `public/_headers` | Build and hosting config (see Deploy). |
 | `docs/NORMS.md` | Sources, assumptions and known gaps for every percentile. Read this first. |
 
