@@ -4,8 +4,10 @@
 // Order of attempts:
 //   1. image + message + link        phones (Android Chrome, iOS Safari), Safari and Edge on desktop
 //   2. message + link, no image      browsers that can share but not share files
-//   3. save the card, copy message   browsers with no share sheet at all (Firefox on desktop, and any
-//                                    page served over plain http, such as `npm run dev` opened on a phone)
+//   3. copy card + message + link    browsers with no share sheet at all (some desktop browsers, and any
+//                                    page served over plain http, such as `npm run dev` opened on a phone).
+//                                    See copyCard() below.
+//   4. copy message + link           if the browser will not put an image on the clipboard
 //
 // The link goes inside the message text, because several apps (WhatsApp, Instagram) keep only the text
 // when an image is attached. It is not also passed as `url` with the image, or some apps show it twice.
@@ -39,6 +41,32 @@ export async function shareResult({ file, text }) {
     }
   }
   return 'unsupported';
+}
+
+const escHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/**
+ * Put the card and the message (with the link) on the clipboard together, as one item with three formats:
+ * the picture, plain text, and HTML holding both. What a paste gives depends on the app: email and docs
+ * (Gmail, Outlook, Google Docs) take the card and the message together; chat apps (WhatsApp Web, Slack,
+ * Instagram) take the card as a photo, and their text box takes the message.
+ * Returns 'card' (card + message copied), 'text' (message only) or false (nothing copied).
+ * Call straight from a tap with the file and its data: URL ready (Safari refuses a clipboard write that
+ * waits on anything first), like shareResult().
+ */
+export async function copyCard({ file, dataUrl, text }) {
+  if (file && dataUrl && window.ClipboardItem && navigator.clipboard?.write) {
+    try {
+      const html = `<p>${escHtml(text).replace(escHtml(SITE_URL), `<a href="${SITE_URL}">${SITE_URL}</a>`)}</p><img src="${dataUrl}" alt="My Latent result card" width="360">`;
+      await navigator.clipboard.write([new ClipboardItem({
+        'image/png': file,
+        'text/plain': new Blob([text], { type: 'text/plain' }),
+        'text/html': new Blob([html], { type: 'text/html' }),
+      })]);
+      return 'card';
+    } catch { /* this browser takes text only on the clipboard: fall through */ }
+  }
+  return (await copyText(text)) ? 'text' : false;
 }
 
 export async function copyText(text) {

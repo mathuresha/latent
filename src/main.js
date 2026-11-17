@@ -9,7 +9,7 @@ import { HOW_WE_SCORE } from './content/how-we-score.js';
 import { currentTheme, toggleTheme, onThemeChange } from './core/theme.js';
 import { logoSvg } from './core/logo.js';
 import { startMusic, stopMusic, isMuted, setMuted, onMuteChange } from './core/music.js';
-import { shareMessage, shareResult, copyText } from './core/share.js';
+import { shareMessage, shareResult, copyCard } from './core/share.js';
 
 const TESTS = [pitch, memory, rotation];
 const app = document.getElementById('app');
@@ -70,6 +70,18 @@ const syncMusicBtn = (m) => {
 syncMusicBtn(isMuted());
 onMuteChange(syncMusicBtn);
 const $ = (sel) => app.querySelector(sel);
+
+// a small note that pops up at the bottom for a few seconds, also read out by screen readers
+const toastEl = document.createElement('div');
+toastEl.className = 'toast'; toastEl.setAttribute('role', 'status');
+document.body.append(toastEl);
+let toastTimer = null;
+function toast(text) {
+  toastEl.textContent = text;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3000);
+}
 
 function home() {
   html(`
@@ -156,7 +168,7 @@ function result(t) {
     <img class="card-img" src="${url}" alt="${esc(`Your result card. ${r.bigLines.join(' ')}, ${r.ability}. ${r.sentence} ${r.detail}`)}" />
     ${t.meta.resultNote ? `<p class="small note">${t.meta.resultNote}</p>` : ''}
     <div class="btnrow share-row"><button class="btn primary big" id="share">${ICON_SHARE}Share</button><button class="btn big" id="save">Save card</button></div>
-    <p class="small share-msg" id="share-msg" role="status"></p>
+
     ${strong ? `<div class="tile"><h2>A head start, not destiny</h2>
       <p class="small">Fine ${esc(t.meta.verb)} gives you a head start. Whether you stick with something depends far more on practice and how the first month feels.</p>
       ${HOBBIES[t.meta.id].map((h) => `<div class="hobby"><h3>${h.title}</h3><p>${h.why}</p><p><b>Start this week:</b> ${h.start}</p><p class="small">${h.note}</p></div>`).join('')}</div>` : ''}
@@ -181,11 +193,10 @@ function result(t) {
   $('#share').onclick = async () => {
     const how = await shareResult({ file, text: msg });
     if (how !== 'unsupported') return;
-    download();
-    const copied = await copyText(msg);
-    $('#share-msg').textContent = copied
-      ? 'This browser has no share menu, so we saved your card and copied the message with the link. Post the card anywhere and paste the message.'
-      : 'This browser has no share menu, so we saved your card. Post it anywhere, with a link to this site.';
+    const copied = await copyCard({ file, dataUrl: url, text: msg });
+    toast(copied === 'card' ? 'Card and link copied. Paste them anywhere.'
+      : copied === 'text' ? 'Link copied. Tap Save card to add the picture.'
+      : 'Could not copy here. Tap Save card, then share the card.');
   };
 }
 

@@ -1,16 +1,20 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 
 // The site's public address, with no trailing slash. Used for the canonical URL and link-preview tags in
 // index.html (written there as __SITE_URL__), for robots.txt and sitemap.xml, and for the link people
 // send when they share a result.
-// CHANGE THIS to the real domain before launch, or to the workers.dev address until the domain is bought:
-// link previews break if it points at a domain you don't own. A SITE_URL environment variable overrides it.
-const SITE_URL = (process.env.SITE_URL || 'https://latent.mathuresha2001.workers.dev/').replace(/\/+$/, '');
+// Set it as SITE_URL in a .env file next to this one (copy .env.example; .env is not committed), or as a
+// SITE_URL environment variable on the host (Cloudflare: Settings > Build > Variables). If neither is set,
+// the address below is used. Link previews break if it points at a domain you don't own.
+const DEFAULT_SITE_URL = 'https://playlatent.com';
 
 // Relative base so the built site works at a domain root (Cloudflare Pages, Netlify, Vercel)
 // and under a sub-path (GitHub Pages project sites) without changes.
 export default defineConfig(({ mode }) => {
+  // reads .env, .env.local and .env.[mode], plus real environment variables (which win)
+  const env = loadEnv(mode, process.cwd(), '');
+  const SITE_URL = (env.SITE_URL || DEFAULT_SITE_URL).trim().replace(/\/+$/, '');
   const today = new Date().toISOString().slice(0, 10);
   return {
     base: './',

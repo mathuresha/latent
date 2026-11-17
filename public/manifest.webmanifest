@@ -4,7 +4,7 @@
   "description": "Short tests that show what you're strangely good at, and how rare that is.",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "browser",
   "background_color": "#ffe9f1",
   "theme_color": "#ffe9f1",
   "icons": [
