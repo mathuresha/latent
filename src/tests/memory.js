@@ -29,6 +29,7 @@ export const meta = {
   outperform: 'people hold fewer things in mind than you',
   growth: 'Everyone is sharp in different places. Try another test to find yours.',
   verb: 'memory',
+  shareAs: 'visual memory',
 };
 
 // Set sizes from 2 to 6 squares (the 7 paradigm colours leave one spare for a change at 6; K = 5 is
@@ -100,14 +101,18 @@ function layout(n, w, h, size, minDist) {
 export async function run(root) {
   const W = 340, H = 280, SQ = 34;
   root.innerHTML = `
-    <canvas id="m-cv" class="stage" role="img" aria-label="Coloured squares flash here, then one comes back"></canvas>
+    <div class="arena">
+      <canvas id="m-cv" class="stage" role="img" aria-label="Coloured squares flash here, then one comes back"></canvas>
+      <div class="feedback" id="m-fb" aria-live="polite"></div>
+    </div>
+    <div class="controls">
     <div class="btnrow" role="group" aria-label="Is the square's colour the same or changed?">
       <button class="btn big" data-a="same" disabled aria-label="Same colour" aria-keyshortcuts="S">Same</button>
       <button class="btn big" data-a="changed" disabled aria-label="Colour changed" aria-keyshortcuts="C">Changed</button>
     </div>
     <p class="keys small">Keyboard: press S for same, C for changed.</p>
-    <div class="feedback" id="m-fb" aria-live="polite"></div>
-    <div class="progress" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bar" id="m-bar"></div></div>`;
+    <div class="progress" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bar" id="m-bar"></div></div>
+    </div>`;
   const cv = root.querySelector('#m-cv');
   const dpr = window.devicePixelRatio || 1;
   cv.width = W * dpr; cv.height = H * dpr;

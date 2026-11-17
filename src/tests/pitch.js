@@ -26,6 +26,7 @@ export const meta = {
   outperform: 'people hear pitch less finely than you',
   growth: 'Pitch hearing improves with practice, so this is a starting line, not a ceiling.',
   verb: 'ear',
+  shareAs: 'ear for pitch',
 };
 
 // Ladder of frequency differences, in % of the base frequency: 20% down to about 0.1%, each step a
@@ -84,14 +85,18 @@ export function detail(s) {
 
 export async function run(root) {
   root.innerHTML = `
-    <div class="prompt" id="p-msg" aria-live="polite">Get ready…</div>
+    <div class="arena">
+      <div class="prompt big-prompt" id="p-msg" aria-live="polite">Get ready…</div>
+      <div class="feedback" id="p-fb" aria-live="polite"></div>
+    </div>
+    <div class="controls">
     <div class="btnrow" role="group" aria-label="Which note was higher?">
       <button class="btn big" data-a="1" disabled aria-label="The first note was higher" aria-keyshortcuts="1">1 · First</button>
       <button class="btn big" data-a="2" disabled aria-label="The second note was higher" aria-keyshortcuts="2">2 · Second</button>
     </div>
     <p class="keys small">Keyboard: press 1 or 2.</p>
-    <div class="feedback" id="p-fb" aria-live="polite"></div>
-    <div class="progress" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bar" id="p-bar"></div></div>`;
+    <div class="progress" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bar" id="p-bar"></div></div>
+    </div>`;
   const msg = root.querySelector('#p-msg');
   const fb = root.querySelector('#p-fb');
   const bar = root.querySelector('#p-bar');

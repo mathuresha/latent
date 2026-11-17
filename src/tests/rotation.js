@@ -31,6 +31,7 @@ export const meta = {
   outperform: 'people turn shapes in their head slower than you',
   growth: 'Everyone is sharp in different places. Try another test to find yours.',
   verb: 'spatial sense',
+  shareAs: 'mental rotation skills',
 };
 
 export { DURATION_MS, ANGLES, STAIR, POINTS };
@@ -54,14 +55,18 @@ export function detail(s) {
 
 export async function run(root) {
   root.innerHTML = `
-    <div class="timer" id="r-timer" role="timer" aria-live="off">Practice</div>
-    <div class="pair"><canvas class="shape" id="r-a" role="img" aria-label="Shape A"></canvas><canvas class="shape" id="r-b" role="img" aria-label="Shape B, turned"></canvas></div>
+    <div class="arena">
+      <div class="timer" id="r-timer" role="timer" aria-live="off">Practice</div>
+      <div class="pair"><canvas class="shape" id="r-a" role="img" aria-label="Shape A"></canvas><canvas class="shape" id="r-b" role="img" aria-label="Shape B, turned"></canvas></div>
+      <div class="feedback" id="r-fb" aria-live="polite"></div>
+    </div>
+    <div class="controls">
     <div class="btnrow" role="group" aria-label="Is shape B the same shape turned, or a mirror image?">
       <button class="btn big" data-a="same" disabled aria-label="Same shape, just turned" aria-keyshortcuts="S">Same</button>
       <button class="btn big" data-a="different" disabled aria-label="Different, a mirror image" aria-keyshortcuts="D">Different</button>
     </div>
     <p class="keys small">Keyboard: press S for same, D for different.</p>
-    <div class="feedback" id="r-fb" aria-live="polite"></div>`;
+    </div>`;
   const ca = root.querySelector('#r-a'), cb = root.querySelector('#r-b');
   const timer = root.querySelector('#r-timer');
   const fb = root.querySelector('#r-fb');

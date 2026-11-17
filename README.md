@@ -16,6 +16,11 @@ npm run dev
 Open the URL it prints (usually http://localhost:5173). On a phone on the same Wi-Fi, use the "Network"
 URL it prints. Sound needs a user tap first, which the sound check provides.
 
+To try **Share** on a phone, use `npm run dev:phone` instead and open the `https://` Network URL. Phones
+only offer the share sheet to https pages, so with plain `npm run dev` the Share button falls back to saving
+the card. The phone will warn about the certificate the first time (it is made on your computer for
+testing); tap Advanced and continue. The live site is https already.
+
 `npm run build` makes a static `dist/` folder (about 40 KB) you can host anywhere. `npm run preview` serves it locally.
 
 ## Deploy (Cloudflare)
@@ -63,6 +68,8 @@ relative base path already handles the `/<repo>/` sub-path.
 | `src/core/card.js` | Result card renderer (option 4, sticker style), 1080 x 1920 canvas. Uses the active theme's colours. |
 | `src/core/theme.js` | Light / dark theme: follows the system until the user taps the toggle, then remembers the choice. Colours live as CSS variables in `src/styles.css`; canvas code reads them through `palette()`. |
 | `src/core/staircase.js` | Adaptive difficulty shared by all three tests: start easy, harder after right answers, easier after a miss. |
+| `src/core/share.js` | Share button: phone share sheet with card + message + link; where there is none, saves the card and copies the message. The link is `SITE_URL` from `vite.config.js`. |
+| `src/core/music.js` | Silly background loop during the memory and rotation tests (none in the pitch test), with a remembered mute toggle. Original, synthesised in the browser, no audio file or licence needed. |
 | `src/core/copy.js` | Turns a percentile into the words on the card. Holds the 0.5% rarity floor. |
 | `src/data/hobbies.js` | Draft hobby lists. |
 | `scripts/simulate.js` (`npm run simulate`) | Repeatability checks, the adaptive-bias corrections (`src/data/adaptive-calibration.js`) and the rotation norm table. Re-run after changing any test's design. |
@@ -74,7 +81,7 @@ A test module exports `meta`, `run(root)` (returns raw data), `score(raw)` (retu
 
 ## Not done yet
 
-Instagram Story share (the card can be saved, and shared through the phone's share sheet where
-supported), the live deploy itself, name checks, privacy notice wording, real-player validation of the norms.
+Direct "post to Instagram Story" (sharing goes through the phone's share sheet, with the card, a message and
+the link; see `src/core/share.js`), the live deploy itself, name checks, privacy notice wording, real-player validation of the norms.
 
 Add `?debug` to the URL to expose `window.__latent` in the console.

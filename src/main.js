@@ -8,6 +8,8 @@ import { HOBBIES } from './data/hobbies.js';
 import { HOW_WE_SCORE } from './content/how-we-score.js';
 import { currentTheme, toggleTheme, onThemeChange } from './core/theme.js';
 import { logoSvg } from './core/logo.js';
+import { startMusic, stopMusic, isMuted, setMuted, onMuteChange } from './core/music.js';
+import { shareMessage, shareResult, copyText } from './core/share.js';
 
 const TESTS = [pitch, memory, rotation];
 const app = document.getElementById('app');
@@ -18,9 +20,14 @@ try { name = localStorage.getItem('latent.name') || ''; } catch { /* private mod
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let screenThemeHook = null; // the current screen's reaction to a theme change, if any
 let firstScreen = true;
-const html = (s, { testing = false, wide = false } = {}) => {
+// fill: the screen takes the full height of the window, so its main buttons (.actions) sit at the bottom
+// within thumb reach instead of floating halfway up with empty space below them.
+const html = (s, { testing = false, wide = false, fill = false, music = false } = {}) => {
   screenThemeHook = null;
+  if (!music) stopMusic();
   document.body.classList.toggle('testing', testing);
+  document.body.classList.toggle('fill', fill || testing);
+  document.body.classList.toggle('music', music);
   document.body.classList.toggle('wide', wide); // only the How we score page uses the wide desktop layout
   app.innerHTML = s; window.scrollTo(0, 0);
   // move focus to the new screen's heading, so keyboard and screen-reader users start at the top of it
@@ -32,6 +39,7 @@ const html = (s, { testing = false, wide = false } = {}) => {
 
 // ---- theme toggle ---------------------------------------------------------------------
 const ICON_MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
+const ICON_SHARE = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
 const ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
 const themeBtn = document.createElement('button');
 themeBtn.className = 'theme-toggle';
@@ -45,6 +53,22 @@ const syncThemeBtn = (t) => {
 };
 syncThemeBtn(currentTheme());
 onThemeChange((t) => { syncThemeBtn(t); screenThemeHook?.(t); });
+
+// ---- music toggle (only shown during the tests that have music; takes the theme toggle's spot) ----------
+const ICON_NOTE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>';
+const ICON_NOTE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/><path d="M3 3l18 18"/></svg>';
+const musicBtn = document.createElement('button');
+musicBtn.className = 'theme-toggle music-toggle';
+musicBtn.setAttribute('aria-label', 'Background music');
+musicBtn.onclick = () => setMuted(!isMuted());
+document.body.prepend(musicBtn);
+const syncMusicBtn = (m) => {
+  musicBtn.innerHTML = m ? ICON_NOTE_OFF : ICON_NOTE;
+  musicBtn.setAttribute('aria-pressed', String(!m)); // pressed = music on
+  musicBtn.title = m ? 'Music off. Tap to turn it on' : 'Music on. Tap to mute';
+};
+syncMusicBtn(isMuted());
+onMuteChange(syncMusicBtn);
 const $ = (sel) => app.querySelector(sel);
 
 function home() {
@@ -75,7 +99,7 @@ function intro(t) {
     <h1 class="h2">${t.meta.title}</h1>
     <div class="tile"><ul class="steps">${t.meta.instructions.map((i) => `<li>${i}</li>`).join('')}</ul>
       <p class="small">${t.meta.time}</p></div>
-    <button class="btn primary" id="go">${t.meta.needsAudio ? 'Next: sound check' : 'Start'}</button>`);
+    <div class="actions"><button class="btn primary big" id="go">${t.meta.needsAudio ? 'Next: sound check' : 'Start'}</button></div>`, { fill: true });
   $('#back').onclick = home;
   $('#go').onclick = () => (t.meta.needsAudio ? soundCheck(t) : play(t));
 }
@@ -89,7 +113,7 @@ function soundCheck(t) {
       <div class="btnrow"><button class="btn big" id="tone">▶ Play tone</button></div>
       <p class="small" id="sc-msg">You should hear a steady beep.</p>
     </div>
-    <button class="btn primary" id="go" disabled>I heard it. Start</button>`);
+    <div class="actions"><button class="btn primary big" id="go" disabled>I heard it. Start</button></div>`, { fill: true });
   $('#back').onclick = () => intro(t);
   $('#tone').onclick = async () => {
     try { getCtx(); await playTone(440, 800); $('#go').disabled = false; $('#sc-msg').textContent = 'Heard it? Tap Start. If not, raise your volume or check your headphones and play again.'; }
@@ -99,12 +123,15 @@ function soundCheck(t) {
 }
 
 async function play(t) {
-  html(`<h1 class="brand test-title">${t.meta.title}</h1><div id="stage"></div>`, { testing: true });
+  // no music in the pitch test: it would mask the notes being compared
+  const music = !t.meta.needsAudio;
+  html(`<h1 class="brand test-title">${t.meta.title}</h1><div id="stage"></div>`, { testing: true, music });
+  if (music) startMusic(); // play() always runs straight from a tap, so the browser allows sound
   let raw;
   try { raw = await t.run($('#stage')); } catch (e) { if (e.message !== 'aborted') { console.error(e); html(`<p>Something went wrong. <button class="btn" id="b">Back</button></p>`); $('#b').onclick = home; } return; }
   const s = t.score(raw);
   if (s.invalid) {
-    html(`<h1 class="h2">${t.meta.title}</h1><div class="tile"><p>${s.invalid}</p></div><div class="btnrow"><button class="btn primary big" id="again">Try again</button><button class="btn big" id="back">Back</button></div>`);
+    html(`<h1 class="h2">${t.meta.title}</h1><div class="tile"><p>${s.invalid}</p></div><div class="btnrow actions"><button class="btn primary big" id="again">Try again</button><button class="btn big" id="back">Back</button></div>`, { fill: true });
     $('#again').onclick = () => intro(t); $('#back').onclick = home;
     return;
   }
@@ -116,6 +143,11 @@ function result(t) {
   const r = results[t.meta.id];
   let cv = renderCard({ name, result: r });
   let url = cv.toDataURL('image/png');
+  const msg = shareMessage(t.meta, r);
+  // the card file is made ahead of time: Safari only opens the share sheet if it is asked straight from the tap
+  let file = null;
+  const makeFile = () => cv.toBlob((b) => { if (b) file = new File([b], `latent-${t.meta.id}.png`, { type: 'image/png' }); }, 'image/png');
+  makeFile();
   const others = TESTS.filter((o) => o.meta.id !== t.meta.id && !results[o.meta.id]);
   const strong = r.topPct <= 30;
   html(`
@@ -123,7 +155,8 @@ function result(t) {
     <h1 class="sr-only">Your ${t.meta.title.toLowerCase()} result</h1>
     <img class="card-img" src="${url}" alt="${esc(`Your result card. ${r.bigLines.join(' ')}, ${r.ability}. ${r.sentence} ${r.detail}`)}" />
     ${t.meta.resultNote ? `<p class="small note">${t.meta.resultNote}</p>` : ''}
-    <div class="btnrow"><button class="btn primary big" id="save">Save card</button><button class="btn big" id="share">Share</button></div>
+    <div class="btnrow share-row"><button class="btn primary big" id="share">${ICON_SHARE}Share</button><button class="btn big" id="save">Save card</button></div>
+    <p class="small share-msg" id="share-msg" role="status"></p>
     ${strong ? `<div class="tile"><h2>A head start, not destiny</h2>
       <p class="small">Fine ${esc(t.meta.verb)} gives you a head start. Whether you stick with something depends far more on practice and how the first month feels.</p>
       ${HOBBIES[t.meta.id].map((h) => `<div class="hobby"><h3>${h.title}</h3><p>${h.why}</p><p><b>Start this week:</b> ${h.start}</p><p class="small">${h.note}</p></div>`).join('')}</div>` : ''}
@@ -136,19 +169,23 @@ function result(t) {
     cv = renderCard({ name, result: r });
     url = cv.toDataURL('image/png');
     $('.card-img').src = url;
+    makeFile();
   };
   $('#back').onclick = home;
   $('#how').onclick = () => howWeScore(() => result(t));
   app.querySelectorAll('[data-next]').forEach((b) => (b.onclick = () => intro(TESTS.find((o) => o.meta.id === b.dataset.next))));
   const download = () => { const a = document.createElement('a'); a.href = url; a.download = `latent-${t.meta.id}.png`; a.click(); };
   $('#save').onclick = download;
+  // the phone's own share sheet (Instagram, WhatsApp, Facebook...) with the card, the message and the link.
+  // A browser with no share sheet (some desktop browsers) saves the card and copies the message instead.
   $('#share').onclick = async () => {
-    try {
-      const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
-      const file = new File([blob], `latent-${t.meta.id}.png`, { type: 'image/png' });
-      if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file] });
-      else download();
-    } catch { /* user cancelled */ }
+    const how = await shareResult({ file, text: msg });
+    if (how !== 'unsupported') return;
+    download();
+    const copied = await copyText(msg);
+    $('#share-msg').textContent = copied
+      ? 'This browser has no share menu, so we saved your card and copied the message with the link. Post the card anywhere and paste the message.'
+      : 'This browser has no share menu, so we saved your card. Post it anywhere, with a link to this site.';
   };
 }
 
