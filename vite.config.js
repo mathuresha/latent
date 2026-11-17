@@ -9,6 +9,12 @@ import basicSsl from '@vitejs/plugin-basic-ssl';
 // the address below is used. Link previews break if it points at a domain you don't own.
 const DEFAULT_SITE_URL = 'https://playlatent.com';
 
+// Usage analytics (src/core/analytics.js). Both settings work like SITE_URL: a .env line or a host variable.
+//   CF_WEB_ANALYTICS_TOKEN  the site token from Cloudflare > Analytics & Logs > Web Analytics. Adds the
+//                           page-view script. Leave it empty to skip page views. It is public (it ends up
+//                           in the page), so it is fine in .env.example and in build logs.
+//   ANALYTICS=off           turns off everything: page views and our own event counts.
+
 // Relative base so the built site works at a domain root (Cloudflare Pages, Netlify, Vercel)
 // and under a sub-path (GitHub Pages project sites) without changes.
 export default defineConfig(({ mode }) => {
@@ -16,11 +22,18 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const SITE_URL = (env.SITE_URL || DEFAULT_SITE_URL).trim().replace(/\/+$/, '');
   const today = new Date().toISOString().slice(0, 10);
+  const ANALYTICS = (env.ANALYTICS || 'on').trim().toLowerCase() !== 'off';
+  const CF_BEACON_TOKEN = ANALYTICS ? (env.CF_WEB_ANALYTICS_TOKEN || '').trim() : '';
   return {
     base: './',
     build: { outDir: 'dist' },
-    // the same address for the app's own code (the link in a shared result, src/core/share.js)
-    define: { __SITE_URL__: JSON.stringify(SITE_URL) },
+    // the same address for the app's own code (the link in a shared result, src/core/share.js),
+    // and the analytics settings for src/core/analytics.js
+    define: {
+      __SITE_URL__: JSON.stringify(SITE_URL),
+      __ANALYTICS__: JSON.stringify(ANALYTICS),
+      __CF_BEACON_TOKEN__: JSON.stringify(CF_BEACON_TOKEN),
+    },
     plugins: [
       // `npm run dev:phone`: serve over https on your Wi-Fi, because phones only offer the share sheet
       // (and a few other features) to https pages. Your phone will warn about the certificate once.

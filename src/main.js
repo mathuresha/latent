@@ -10,6 +10,7 @@ import { currentTheme, toggleTheme, onThemeChange } from './core/theme.js';
 import { logoSvg } from './core/logo.js';
 import { startMusic, stopMusic, isMuted, setMuted, onMuteChange } from './core/music.js';
 import { shareMessage, shareResult, copyCard } from './core/share.js';
+import { startAnalytics, track } from './core/analytics.js';
 
 const TESTS = [pitch, memory, rotation];
 const app = document.getElementById('app');
@@ -60,7 +61,7 @@ const ICON_NOTE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 const musicBtn = document.createElement('button');
 musicBtn.className = 'theme-toggle music-toggle';
 musicBtn.setAttribute('aria-label', 'Background music');
-musicBtn.onclick = () => setMuted(!isMuted());
+musicBtn.onclick = () => { setMuted(!isMuted()); track(isMuted() ? 'music_off' : 'music_on'); };
 document.body.prepend(musicBtn);
 const syncMusicBtn = (m) => {
   musicBtn.innerHTML = m ? ICON_NOTE_OFF : ICON_NOTE;
@@ -96,7 +97,7 @@ function home() {
         ${r ? `<span class="chip">${r.topPct <= 10 ? 'Top ' + formatTop(r.shownTop) + '%' : r.pill}</span>` : ''}
         <h2 class="h3">${t.meta.title}</h2><p>${t.meta.blurb}</p><p class="small">${t.meta.time}</p></button>`;
     }).join('')}
-    <p class="small">For ages 18 and up. Nothing leaves your device. Your name stays in this browser and only appears on your card. Results are fun, not a medical or hearing test. <button class="linkbtn small" id="how">How we score</button></p>`);
+    <p class="small">For ages 18 and up. Your results never leave your device. Your name stays in this browser and only appears on your card. Results are fun, not a medical or hearing test. <button class="linkbtn small" id="how">How we score</button></p>`);
   $('#how').onclick = () => howWeScore(home);
   $('#nm').oninput = (e) => {
     name = e.target.value.trim();
@@ -106,6 +107,7 @@ function home() {
 }
 
 function intro(t) {
+  track('test_open', t.meta.id);
   html(`
     <button class="back" id="back">← All tests</button>
     <h1 class="h2">${t.meta.title}</h1>
@@ -139,15 +141,18 @@ async function play(t) {
   const music = !t.meta.needsAudio;
   html(`<h1 class="brand test-title">${t.meta.title}</h1><div id="stage"></div>`, { testing: true, music });
   if (music) startMusic(); // play() always runs straight from a tap, so the browser allows sound
+  track('test_start', t.meta.id);
   let raw;
   try { raw = await t.run($('#stage')); } catch (e) { if (e.message !== 'aborted') { console.error(e); html(`<p>Something went wrong. <button class="btn" id="b">Back</button></p>`); $('#b').onclick = home; } return; }
   const s = t.score(raw);
   if (s.invalid) {
+    track('test_retry', t.meta.id);
     html(`<h1 class="h2">${t.meta.title}</h1><div class="tile"><p>${s.invalid}</p></div><div class="btnrow actions"><button class="btn primary big" id="again">Try again</button><button class="btn big" id="back">Back</button></div>`, { fill: true });
     $('#again').onclick = () => intro(t); $('#back').onclick = home;
     return;
   }
   results[t.meta.id] = buildResult(t.meta, s, t.detail(s));
+  track('test_done', t.meta.id); // which test, never the score
   result(t);
 }
 
@@ -187,10 +192,11 @@ function result(t) {
   $('#how').onclick = () => howWeScore(() => result(t));
   app.querySelectorAll('[data-next]').forEach((b) => (b.onclick = () => intro(TESTS.find((o) => o.meta.id === b.dataset.next))));
   const download = () => { const a = document.createElement('a'); a.href = url; a.download = `latent-${t.meta.id}.png`; a.click(); };
-  $('#save').onclick = download;
+  $('#save').onclick = () => { track('save', t.meta.id); download(); };
   // the phone's own share sheet (Instagram, WhatsApp, Facebook...) with the card, the message and the link.
   // A browser with no share sheet (some desktop browsers) saves the card and copies the message instead.
   $('#share').onclick = async () => {
+    track('share', t.meta.id);
     const how = await shareResult({ file, text: msg });
     if (how !== 'unsupported') return;
     const copied = await copyCard({ file, dataUrl: url, text: msg });
@@ -209,6 +215,7 @@ function result(t) {
 // left with the other sections in two columns. The copy file stays plain HTML; this function
 // rearranges it, so pasting new copy from the doc keeps working.
 function howWeScore(back = home) {
+  track('how_we_score');
   html(`
     <div class="hws">
       <button class="back" id="back">← Back</button>
@@ -263,5 +270,7 @@ function howWeScore(back = home) {
   $('#done').onclick = home;
 }
 
+startAnalytics();
+track('open');
 if (location.hash === '#how-we-score') howWeScore(); else home();
 if (new URLSearchParams(location.search).has('debug')) window.__latent = { results, TESTS, home, intro, result, howWeScore, buildResult, renderCard };

@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "simulate": "node scripts/simulate.js",
+    "stats": "node scripts/stats.js",
     "deploy": "vite build && npx wrangler deploy"
   },
   "devDependencies": {

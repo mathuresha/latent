@@ -1,8 +1,8 @@
 # Latent (MVP)
 
 Three research-based perceptual tests that tell you how rare your result is, then give you a shareable
-result card and (for strong results) starting points for a hobby. Runs entirely in the browser. No server,
-no accounts, nothing collected.
+result card and (for strong results) starting points for a hobby. Runs entirely in the browser. No accounts,
+and results never leave the device. The only thing collected is anonymous, cookie-free usage counts (see Usage analytics).
 
 ## Run it
 
@@ -25,13 +25,14 @@ testing); tap Advanced and continue. The live site is https already.
 
 ## Deploy (Cloudflare)
 
-It is a plain static site: no server, no environment variables, no redirects needed (there is one page and
-no URL routing). Free plan is enough. It deploys as a Cloudflare Worker that serves static assets, which is
+It is a static site plus a tiny Worker (`worker/index.js`) that only counts anonymous usage events; no
+redirects needed (there is one page and no URL routing). Free plan is enough. It deploys as a Cloudflare Worker that serves static assets, which is
 what the dashboard's Git flow creates. Config already in the repo:
 
 - `vite.config.js`: `base: './'`, so the build works at a domain root or under a sub-path.
 - `public/_headers`: long caching for `/assets/*` and a few safe security headers. Copied into `dist/`.
-- `wrangler.toml`: Worker name `latent`, serves `./dist`. The name must match the project name in Cloudflare.
+- `wrangler.toml`: Worker name `latent`, serves `./dist`, runs `worker/index.js` for `/api/e` and binds the
+  `latent_events` Analytics Engine dataset. The name must match the project name in Cloudflare.
 - `.node-version`: Node 20 for the Cloudflare build.
 
 ### Option A: connected to Git (rebuilds on every push)
@@ -54,11 +55,39 @@ npm run deploy            # builds, then runs: npx wrangler deploy
 
 In the project: Settings > Domains & Routes > Add > Custom domain. HTTPS is automatic.
 
+The live site is https://playlatent.com (custom domain on the `latent` Worker). `SITE_URL` defaults to it in
+`vite.config.js`; it is also set under Settings > Build > Variables and secrets so Git builds use it explicitly.
+
+`www.playlatent.com` redirects to `https://playlatent.com` with a Cloudflare Redirect Rule, not in this repo
+(a `_redirects` file can't match on hostname):
+
+1. DNS > Records: `AAAA` record, name `www`, IPv6 `100::`, Proxied (orange cloud).
+2. Rules > Redirect Rules > Create rule (or the "Redirect from WWW to root" template). If: Hostname equals
+   `www.playlatent.com`. Then: Dynamic redirect, expression `concat("https://playlatent.com", http.request.uri.path)`,
+   status 301, Preserve query string on.
+
 ### Other hosts
 
 Netlify, Vercel and GitHub Pages work the same way: build command `npm run build`, output `dist`. Netlify also
 reads `_headers`; the others ignore it. For GitHub Pages, upload `dist` with the Pages GitHub Action; the
 relative base path already handles the `/<repo>/` sub-path.
+
+## Usage analytics
+
+Two cookie-free parts, both on Cloudflare (which already hosts the site). Neither stores IP addresses, IDs
+or anything from a test result, and both are skipped for browsers set to Do Not Track or Global Privacy Control.
+`npm run dev` sends nothing. Set `ANALYTICS=off` to turn both off.
+
+- **Page views** (visitors, referrers, countries, browsers, page speed): Cloudflare Web Analytics. Set
+  `CF_WEB_ANALYTICS_TOKEN` (in `.env` and in the Worker's build variables) to the site token from
+  Analytics & Logs > Web Analytics. Don't also turn on its automatic setup, or views count twice.
+- **Events** (which tests get opened, started, finished, shared): `src/core/analytics.js` sends an event name,
+  and the test id, to `POST /api/e`; `worker/index.js` writes it, plus the country, to the Analytics Engine
+  dataset `latent_events`. The full list of events is at the top of `worker/index.js`. Read the totals with
+  `npm run stats` (or `npm run stats 30` for 30 days); it needs `CF_ACCOUNT_ID` and an `CF_API_TOKEN` with
+  Account Analytics Read, kept in your local `.env` only.
+
+On hosts other than Cloudflare the Worker doesn't run, so events are simply not counted.
 
 ## What is here
 
@@ -70,6 +99,7 @@ relative base path already handles the `/<repo>/` sub-path.
 | `src/core/staircase.js` | Adaptive difficulty shared by all three tests: start easy, harder after right answers, easier after a miss. |
 | `src/core/share.js` | Share button: phone share sheet with card + message + link; where there is none, copies the card and message together and shows a short "copied" note. The link is `SITE_URL` from `vite.config.js`. |
 | `src/core/music.js` | Silly background loop during the memory and rotation tests (none in the pitch test), with a remembered mute toggle. Original, synthesised in the browser, no audio file or licence needed. |
+| `src/core/analytics.js`, `worker/index.js` | Anonymous usage counts (see Usage analytics). |
 | `src/core/copy.js` | Turns a percentile into the words on the card. Holds the 0.5% rarity floor. |
 | `src/data/hobbies.js` | Draft hobby lists. |
 | `scripts/simulate.js` (`npm run simulate`) | Repeatability checks, the adaptive-bias corrections (`src/data/adaptive-calibration.js`) and the rotation norm table. Re-run after changing any test's design. |

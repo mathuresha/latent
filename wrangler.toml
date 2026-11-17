@@ -1,8 +1,19 @@
-# Cloudflare Workers static-assets config, used by `npx wrangler deploy`
+# Cloudflare Workers config, used by `npx wrangler deploy`
 # (the dashboard's Git builds run this after `npm run build`).
 # `name` must match the Worker/project name in the Cloudflare dashboard.
 name = "latent"
 compatibility_date = "2026-10-01"
 
+# worker/index.js serves the site and counts anonymous usage events (POST /api/e).
+# Files that exist in dist/ are served straight from Cloudflare's cache without running the Worker.
+main = "worker/index.js"
+
 [assets]
 directory = "./dist"
+binding = "ASSETS"
+
+# Anonymous usage counts (see src/core/analytics.js). Turn on Analytics Engine once in the dashboard first:
+# Workers & Pages > Analytics Engine.
+[[analytics_engine_datasets]]
+binding = "EVENTS"
+dataset = "latent_events"

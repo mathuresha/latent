@@ -82,7 +82,8 @@ It's a good guide to what you're naturally good at, but it isn't a lab test, and
   <h2>What we don't do</h2>
   <ul>
     <li><b>We don't diagnose anything.</b> Latent is not a hearing, eyesight or medical test. If you're worried about your hearing or vision, see a doctor.</li>
-    <li><b>We don't collect your results.</b> Every test runs and is scored on your phone. Nothing is sent to us.</li>
+    <li><b>We don't collect your results.</b> Every test runs and is scored on your phone. Your scores, rarity and card are never sent to us.</li>
+    <li><b>We don't track you.</b> We count visits, and moments like "a pitch test was started" or "a card was shared", so we know which tests people use. Those counts carry no score, no name, no ID and no cookie, and we don't keep IP addresses. If your browser is set to Do Not Track or Global Privacy Control, we don't count you at all.</li>
     <li><b>We don't need an account.</b> Your first name, if you add it, stays in your browser and only appears on your card.</li>
     <li><b>We don't decide who you are.</b> A rare result is a head start, not destiny, and an average one doesn't mean you can't get good with practice.</li>
   </ul>
