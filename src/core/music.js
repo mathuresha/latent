@@ -1,23 +1,29 @@
-// Silly background music for the tests: a bouncy "oom-pah" loop with a plinky marimba tune, woodblock
-// ticks and a slide-whistle swoop at the end of each phrase. Original, composed for Latent and synthesised
-// live with Web Audio, so there is no audio file and nothing to license.
+// Background music, two tracks. Both original, composed for Latent and synthesised live with Web Audio, so
+// there is no audio file and nothing to license.
+//   home: silly and bouncy. An "oom-pah" loop with a plinky marimba tune, woodblock ticks and a
+//         slide-whistle swoop at the end of each phrase. Home page, test intros and result screens.
+//   test: calmer "thinking" groove with no tune to follow: a soft A-minor bass line, a ticking bell
+//         arpeggio and a quiet shaker. Only while the memory and rotation tests run, so it doesn't distract.
 //
-// It plays only while a test is running (main.js starts and stops it), never during the pitch test (it
-// would mask the tones being judged), and only after a tap, because browsers block sound until then.
-// The mute choice is remembered in this browser.
+// main.js picks the track for each screen. Changing track stops the old one first (with a gap for the
+// start gong or the result sound in between), so two tracks or a track and an effect never pile up. Never in the pitch test or its sound check (it would mask the tones being judged).
+// Browsers block sound until the visitor taps or presses a key, so nothing plays until then: the first tap
+// anywhere on the page starts it. The one sound toggle covers the music and the effects (src/core/sfx.js),
+// and the choice is remembered in this browser.
 
 import { getCtx } from './audio.js';
 
 const KEY = 'latent.music';
-const BPM = 140;
-const STEP = 60 / BPM / 2; // one eighth note, in seconds
 const LOOKAHEAD = 0.15; // seconds of notes scheduled ahead
-const LEVEL = 0.16; // overall volume, kept well under the test sounds
 
 let muted = false;
 try { muted = localStorage.getItem(KEY) === 'off'; } catch { /* private mode */ }
 
-let wanted = false; // a test that uses music is on screen
+let wanted = false; // a screen that has music is showing
+let unlocked = false; // the visitor has tapped or pressed a key, so the browser allows sound
+let delay = 0; // seconds to wait before the loop starts (lets the start gong or result sound play first)
+let want = 'home'; // the track this screen asks for
+let playing = null; // the track that is playing now
 let bus = null; // gain node all notes go through; replaced on every start so stopping is instant
 let timer = null;
 let step = 0;
@@ -82,7 +88,7 @@ function stab(c, notes, t) {
 }
 
 // woodblock tick
-function tick(c, t) {
+function tick(c, t, { freq = 2400, q = 8, peak = 0.5, dur = 0.04 } = {}) {
   if (!noise) {
     noise = c.createBuffer(1, c.sampleRate * 0.05, c.sampleRate);
     const d = noise.getChannelData(0);
@@ -91,8 +97,8 @@ function tick(c, t) {
   const s = c.createBufferSource();
   s.buffer = noise;
   const bp = c.createBiquadFilter();
-  bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 8;
-  s.connect(bp).connect(env(c, t, 0.5, 0.04, 0.002));
+  bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q;
+  s.connect(bp).connect(env(c, t, peak, dur, 0.002));
   s.start(t); s.stop(t + 0.05);
 }
 
@@ -107,7 +113,7 @@ function swoop(c, t) {
   lfo.start(t); lfo.stop(t + 0.45);
 }
 
-function schedule(c, s, t) {
+function scheduleHome(c, s, t) {
   const bar = Math.floor(s / 8), beat = s % 8;
   if (beat === 0) bass(c, hz(CHORDS[bar][0]), t);
   if (beat === 4) bass(c, hz(CHORDS[bar][1]), t);
@@ -116,24 +122,62 @@ function schedule(c, s, t) {
   if (s === SWOOP_STEP) swoop(c, t);
 }
 
+// ---- test track: 8 bars of 8 eighth notes, Am F C G | Am F G E, 104 bpm ----------------------------
+const T_BASS = [45, 41, 48, 43, 45, 41, 43, 40];
+const T_ARP = [[69, 72, 76], [65, 69, 72], [67, 72, 76], [67, 71, 74], [69, 72, 76], [65, 69, 72], [67, 71, 74], [68, 71, 76]];
+const T_ORDER = [0, 1, 2, 1, 0, 2, 1, 2];
+
+// round, soft bass
+function softBass(c, f, t, dur) {
+  osc(c, 'triangle', f, t, dur, env(c, t, 0.6, dur, 0.02));
+}
+// small bell: sine with a quiet overtone, quick decay
+function bell(c, f, t, peak) {
+  osc(c, 'sine', f, t, 0.35, env(c, t, peak, 0.35, 0.003));
+  osc(c, 'sine', f * 3, t, 0.12, env(c, t, peak * 0.15, 0.12, 0.002));
+}
+// shaker: high, filtered noise
+function shaker(c, t, peak) {
+  tick(c, t, { freq: 7000, q: 1.2, peak, dur: 0.05 });
+}
+
+function scheduleTest(c, s, t) {
+  const bar = Math.floor(s / 8), beat = s % 8;
+  const root = hz(T_BASS[bar]);
+  if (beat === 0) softBass(c, root, t, 0.5);
+  if (beat === 3) softBass(c, root, t, 0.25);
+  if (beat === 6) softBass(c, root * 1.5, t, 0.3);
+  bell(c, hz(T_ARP[bar][T_ORDER[beat]]), t, beat % 2 ? 0.14 : 0.24);
+  shaker(c, t, beat % 2 ? 0.22 : 0.1);
+}
+
+const TRACKS = {
+  home: { bpm: 140, loop: 64, level: 0.16, schedule: scheduleHome },
+  test: { bpm: 104, loop: 64, level: 0.15, schedule: scheduleTest },
+};
+
 function pump() {
-  const c = getCtx();
+  const c = getCtx(), tr = TRACKS[playing];
+  const stepLen = 60 / tr.bpm / 2; // one eighth note, in seconds
   while (nextTime < c.currentTime + LOOKAHEAD) {
-    schedule(c, step, nextTime);
-    nextTime += STEP;
-    step = (step + 1) % LOOP;
+    tr.schedule(c, step, nextTime);
+    nextTime += stepLen;
+    step = (step + 1) % tr.loop;
   }
 }
 
 function play() {
-  if (timer || muted || !wanted || document.hidden) return;
+  if (timer || muted || !wanted || !unlocked || document.hidden) return;
   const c = getCtx();
+  const t0 = c.currentTime + delay;
+  delay = 0;
+  playing = want;
   bus = c.createGain();
-  bus.gain.setValueAtTime(0.0001, c.currentTime);
-  bus.gain.exponentialRampToValueAtTime(LEVEL, c.currentTime + 0.4);
+  bus.gain.setValueAtTime(0.0001, t0);
+  bus.gain.exponentialRampToValueAtTime(TRACKS[playing].level, t0 + 0.4);
   bus.connect(c.destination);
   step = 0;
-  nextTime = c.currentTime + 0.08;
+  nextTime = t0 + 0.08;
   pump();
   timer = setInterval(pump, 30);
 }
@@ -149,13 +193,22 @@ function silence() {
   setTimeout(() => b.disconnect(), 250);
 }
 
-/** Start the loop for a test. Call from a tap (or straight after one) so the browser allows sound. */
-export function startMusic() { wanted = true; play(); }
+/** Ask for a track on this screen ('home' or 'test'). It starts now if the visitor has already tapped, else
+ *  on the first tap. If that track is already playing it just keeps going; a different track is stopped
+ *  first. after: seconds of quiet before it comes in (only when it isn't already playing). */
+export function startMusic({ track = 'home', after = 0 } = {}) {
+  wanted = true;
+  if (timer && playing !== track) silence();
+  want = track;
+  if (!timer) delay = after;
+  play();
+}
 
 /** Stop the loop, for example when leaving a test. */
 export function stopMusic() { wanted = false; silence(); }
 
 export const isMuted = () => muted;
+export const isUnlocked = () => unlocked;
 
 export function setMuted(m) {
   muted = m;
@@ -169,3 +222,16 @@ export function onMuteChange(f) { listeners.add(f); return () => listeners.delet
 
 // pause in a background tab (timers slow down there, which would make the loop stagger)
 document.addEventListener('visibilitychange', () => { if (document.hidden) silence(); else play(); });
+
+// the first tap or key press anywhere unlocks sound. The audio context is made right inside the gesture
+// (iOS Safari insists), and the loop starts just after the click's own handler has run, so a first tap
+// that goes straight to a screen without music (the pitch test) never starts it at all.
+const EVENTS = ['touchend', 'click', 'keydown'];
+const unlock = (e) => {
+  getCtx();
+  if (e.type === 'touchend') return; // the click that follows does the rest
+  unlocked = true;
+  EVENTS.forEach((n) => document.removeEventListener(n, unlock, true));
+  setTimeout(play, 0);
+};
+EVENTS.forEach((n) => document.addEventListener(n, unlock, true));

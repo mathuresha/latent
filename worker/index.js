@@ -13,6 +13,7 @@ const EVENTS = new Set([
   'test_start',    // a test began (after the intro, and the sound check for pitch)
   'test_done',     // a test finished with a valid result
   'test_retry',    // a test finished but the run looked invalid, so the player was asked to retry
+  'test_exit',     // the player left a test midway with the exit button
   'share',         // Share tapped on a result
   'save',          // Save card tapped on a result
   'how_we_score',  // the How we score page was opened

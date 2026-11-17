@@ -48,11 +48,11 @@ console.log(`App opens        ${count('open')}`);
 console.log(`How we score     ${count('how_we_score')}`);
 console.log(`Music muted      ${count('music_off')}  (turned back on ${count('music_on')})\n`);
 
-console.log(pad('Test', 10) + pad('Opened', 8) + pad('Started', 9) + pad('Finished', 10) + pad('Retry', 7) + pad('Shared', 8) + pad('Saved', 7) + 'Finish rate');
+console.log(pad('Test', 10) + pad('Opened', 8) + pad('Started', 9) + pad('Finished', 10) + pad('Retry', 7) + pad('Exited', 8) + pad('Shared', 8) + pad('Saved', 7) + 'Finish rate');
 for (const t of ['pitch', 'memory', 'rotation']) {
   const st = count('test_start', t), dn = count('test_done', t);
   console.log(pad(t, 10) + pad(count('test_open', t), 8) + pad(st, 9) + pad(dn, 10) + pad(count('test_retry', t), 7)
-    + pad(count('share', t), 8) + pad(count('save', t), 7) + pct(dn, st));
+    + pad(count('test_exit', t), 8) + pad(count('share', t), 8) + pad(count('save', t), 7) + pct(dn, st));
 }
 
 console.log('\nOpens per day');

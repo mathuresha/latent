@@ -99,9 +99,26 @@ ul.steps li { margin-bottom: 8px; }
 [tabindex="-1"]:focus { outline: none; }
 .theme-toggle svg { width: 22px; height: 22px; }
 body.testing .theme-toggle { display: none; }
-/* the music toggle takes the same spot, only during tests that have music */
-.music-toggle { display: none; }
+/* the sound toggle (music + effects) sits left of the theme toggle. During a test the theme toggle gives
+   its spot to the exit button (X); in the pitch test (no music, no effects) the sound toggle is hidden */
+.music-toggle { right: calc(max(12px, env(safe-area-inset-right)) + 56px); }
+body.testing .music-toggle { display: none; }
 body.testing.music .music-toggle { display: grid; }
+.exit-toggle { display: none; }
+body.testing .exit-toggle { display: grid; }
+
+/* "Leave this test?" confirmation */
+dialog.confirm {
+  width: min(400px, calc(100% - 32px)); margin: auto; padding: 22px 20px 4px;
+  background: var(--surface); color: var(--ink); border: 3px solid var(--ink); border-radius: 22px;
+  box-shadow: 6px 6px 0 var(--shadow);
+}
+dialog.confirm::backdrop { background: rgba(23, 20, 31, .55); }
+dialog.confirm h2 { font-size: 24px; margin: 0 0 8px; }
+dialog.confirm p { color: var(--soft-strong); font-size: 16px; }
+dialog.confirm .btn.big { font-size: 18px; padding: 16px 8px; }
+dialog.confirm[open] { animation: confirm-in .2s ease-out; }
+@keyframes confirm-in { from { opacity: 0; transform: translateY(12px) scale(.96); } }
 /* respect reduced motion: no transitions, no press-down movement (the card's tilt is static, so it stays) */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
@@ -208,7 +225,7 @@ body.testing #app { min-height: calc(100vh - 40px); min-height: calc(100dvh - 40
 .controls > .btn.primary { display: block; width: 100%; font-size: 20px; padding: 16px; margin-bottom: 12px; }
 .arena .feedback { margin-top: 4px; }
 .big-prompt { font-size: 28px; }
-h1.test-title { padding-right: 56px; } /* room for the music toggle */
+h1.test-title { padding-right: 112px; } /* room for the sound toggle and the exit button */
 /* a phone on its side or a short window: don't stretch, just stack */
 @media (max-height: 560px) { body.fill #app, body.testing #app { min-height: 0; } }
 /* desktop: keep the column from stretching down very tall windows */
@@ -228,3 +245,33 @@ h1.test-title { padding-right: 56px; } /* room for the music toggle */
   border-radius: 999px; padding: 10px 18px; box-shadow: 3px 3px 0 var(--pink);
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---- "Done!" screen after a test, then the result card comes up ------------------------------------------
+   Every animation only runs *into* the element's normal look (backwards fill), so with reduced motion,
+   where animations are switched off above, the screen is simply still and complete. */
+.done { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-bottom: 8vh; }
+.done-badge { position: relative; width: 132px; height: 132px; }
+.done-check { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(6px 6px 0 var(--shadow)); animation: done-pop .5s cubic-bezier(.3, 1.6, .5, 1) backwards; }
+.done-check circle { fill: var(--yellow); stroke: var(--ink); stroke-width: 6; }
+.done-check path { fill: none; stroke: var(--on-accent); stroke-width: 11; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 72; animation: done-draw .35s .3s ease-out backwards; }
+.done-title { font-size: 60px; margin: 26px 0 8px; animation: done-rise .4s .35s ease-out backwards; }
+.done-sub { animation: done-rise .4s .5s ease-out backwards; margin-bottom: 0; }
+.done-burst { position: absolute; left: 50%; top: 50%; }
+.done-burst i {
+  position: absolute; left: -7px; top: -7px; width: 14px; height: 14px; opacity: 0;
+  background: var(--c); border: 2px solid var(--ink); border-radius: var(--r);
+  animation: done-fly 1.2s var(--d) cubic-bezier(.12, .75, .3, 1) forwards;
+}
+@keyframes done-pop { from { transform: scale(0) rotate(-35deg); } }
+@keyframes done-draw { from { stroke-dashoffset: 72; } to { stroke-dashoffset: 0; } }
+@keyframes done-rise { from { opacity: 0; transform: translateY(16px); } }
+@keyframes done-fly {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0) scale(.3); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x), calc(var(--y) + 40px)) rotate(var(--rot)) scale(1); }
+}
+/* the result card bounces up, then the buttons and tips follow */
+.card-img { animation: card-in .6s cubic-bezier(.3, 1.35, .5, 1) backwards; }
+.reveal-late { animation: done-rise .4s .3s ease-out backwards; }
+.reveal-later { animation: done-rise .45s .45s ease-out backwards; }
+@keyframes card-in { from { opacity: 0; transform: translateY(40px) scale(.88) rotate(-5deg); } }

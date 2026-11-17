@@ -98,7 +98,8 @@ On hosts other than Cloudflare the Worker doesn't run, so events are simply not 
 | `src/core/theme.js` | Light / dark theme: follows the system until the user taps the toggle, then remembers the choice. Colours live as CSS variables in `src/styles.css`; canvas code reads them through `palette()`. |
 | `src/core/staircase.js` | Adaptive difficulty shared by all three tests: start easy, harder after right answers, easier after a miss. |
 | `src/core/share.js` | Share button: phone share sheet with card + message + link; where there is none, copies the card and message together and shows a short "copied" note. The link is `SITE_URL` from `vite.config.js`. |
-| `src/core/music.js` | Silly background loop during the memory and rotation tests (none in the pitch test), with a remembered mute toggle. Original, synthesised in the browser, no audio file or licence needed. |
+| `src/core/music.js` | Two background tracks, both original and synthesised in the browser: a silly one for home, intros and results, a calmer one during the memory and rotation tests (no music in the pitch test). One remembered sound toggle covers music and effects. |
+| `src/core/sfx.js` | Sound effects: tap pop, start gong, "time's up" chime, result fanfare. All synthesised except the gong, `src/assets/gong.mp3`: "Tao-Chi Gong" by the_very_Real_Horst, [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:240382_the-very-real-horst_chinese-gong-finish-session-2014-06-10-29-143.wav), CC0 (public domain), trimmed to one 2.6 s strike. |
 | `src/core/analytics.js`, `worker/index.js` | Anonymous usage counts (see Usage analytics). |
 | `src/core/copy.js` | Turns a percentile into the words on the card. Holds the 0.5% rarity floor. |
 | `src/data/hobbies.js` | Draft hobby lists. |
