@@ -8,7 +8,7 @@ import { HOBBIES } from './data/hobbies.js';
 import { HOW_WE_SCORE } from './content/how-we-score.js';
 import { currentTheme, toggleTheme, onThemeChange } from './core/theme.js';
 import { logoSvg } from './core/logo.js';
-import { startMusic, stopMusic, isMuted, setMuted, onMuteChange } from './core/music.js';
+import { startMusic, stopMusic, isMuted, setMuted, onMuteChange, isUnlocked, unlockedBy } from './core/music.js';
 import { sfxClick, sfxGong, sfxEnd, sfxReveal, preloadGong } from './core/sfx.js';
 import { shareMessage, shareResult, copyCard } from './core/share.js';
 import { startAnalytics, track } from './core/analytics.js';
@@ -66,12 +66,21 @@ const ICON_NOTE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 const musicBtn = document.createElement('button');
 musicBtn.className = 'theme-toggle music-toggle';
 musicBtn.setAttribute('aria-label', 'Music and sounds');
-musicBtn.onclick = () => { setMuted(!isMuted()); track(isMuted() ? 'music_off' : 'music_on'); };
+// the very first tap on the page, if it lands on this button, means "play": it unlocks sound and must not
+// also mute it (which is what used to happen, so people had to tap it twice)
+musicBtn.onclick = () => {
+  if (unlockedBy(musicBtn)) { if (isMuted()) { setMuted(false); track('music_on'); } return; }
+  setMuted(!isMuted()); track(isMuted() ? 'music_off' : 'music_on');
+};
 document.body.prepend(musicBtn);
+// Before the first tap nothing can play yet, so the button says so: "Tap for music" with a gentle pulse
+// (unless they muted it on an earlier visit).
 const syncMusicBtn = (m) => {
-  musicBtn.innerHTML = m ? ICON_NOTE_OFF : ICON_NOTE;
-  musicBtn.setAttribute('aria-pressed', String(!m)); // pressed = music on
-  musicBtn.title = m ? 'Sound off. Tap to turn music and sounds on' : 'Sound on. Tap to mute music and sounds';
+  const waiting = !isUnlocked() && !m;
+  musicBtn.classList.toggle('waiting', waiting);
+  musicBtn.innerHTML = waiting ? `${ICON_NOTE_OFF}<span>Tap for music</span>` : m ? ICON_NOTE_OFF : ICON_NOTE;
+  musicBtn.setAttribute('aria-pressed', String(!m && !waiting)); // pressed = music on
+  musicBtn.title = waiting ? 'Tap to play music and sounds' : m ? 'Sound off. Tap to turn music and sounds on' : 'Sound on. Tap to mute music and sounds';
 };
 syncMusicBtn(isMuted());
 onMuteChange(syncMusicBtn);

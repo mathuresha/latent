@@ -223,15 +223,29 @@ export function onMuteChange(f) { listeners.add(f); return () => listeners.delet
 // pause in a background tab (timers slow down there, which would make the loop stagger)
 document.addEventListener('visibilitychange', () => { if (document.hidden) silence(); else play(); });
 
-// the first tap or key press anywhere unlocks sound. The audio context is made right inside the gesture
-// (iOS Safari insists), and the loop starts just after the click's own handler has run, so a first tap
-// that goes straight to a screen without music (the pitch test) never starts it at all.
-const EVENTS = ['touchend', 'click', 'keydown'];
+// the first tap or key press anywhere unlocks sound (browsers allow no sound before one, so music can't start
+// the moment the page opens). Every touch, pointer, click and key event counts: iOS Safari sends no click
+// for a tap on an empty part of the page, so waiting for a click alone left phones silent. Each event also
+// nudges the audio context awake, in case an earlier one wasn't accepted as a gesture. The loop starts a
+// moment later, after the tap's own click handler has run, so a first tap that goes straight to a screen
+// without music (the pitch test) never starts it.
+let unlockedAt = 0;
+let unlockTarget = null;
 const unlock = (e) => {
   getCtx();
-  if (e.type === 'touchend') return; // the click that follows does the rest
+  if (unlocked) return;
   unlocked = true;
-  EVENTS.forEach((n) => document.removeEventListener(n, unlock, true));
-  setTimeout(play, 0);
+  unlockedAt = performance.now();
+  unlockTarget = e.target;
+  setTimeout(play, 350);
+  listeners.forEach((f) => f(muted));
 };
-EVENTS.forEach((n) => document.addEventListener(n, unlock, true));
+['pointerdown', 'touchend', 'click', 'keydown'].forEach((n) => document.addEventListener(n, unlock, true));
+
+/** True if the gesture that unlocked sound was a tap on el, just now (so a first tap on the sound button
+ *  means "play", not "mute"). */
+export function unlockedBy(el) {
+  const hit = !!unlockTarget && el.contains(unlockTarget) && performance.now() - unlockedAt < 1500;
+  unlockTarget = null; // answers once: the next tap on the button is a normal mute / unmute
+  return hit;
+}

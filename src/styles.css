@@ -104,6 +104,10 @@ body.testing .theme-toggle { display: none; }
 .music-toggle { right: calc(max(12px, env(safe-area-inset-right)) + 56px); }
 body.testing .music-toggle { display: none; }
 body.testing.music .music-toggle { display: grid; }
+/* before the first tap: a pill that says "Tap for music", gently pulsing (still pinned to the right) */
+.music-toggle.waiting { width: auto; padding: 0 14px 0 10px; gap: 6px; grid-auto-flow: column; font: inherit; font-weight: 700; font-size: 14px; animation: tap-pulse 1.6s ease-in-out infinite; }
+.music-toggle.waiting svg { width: 20px; height: 20px; }
+@keyframes tap-pulse { 50% { box-shadow: 3px 3px 0 var(--shadow), 0 0 0 6px color-mix(in srgb, var(--pink) 35%, transparent); } }
 .exit-toggle { display: none; }
 body.testing .exit-toggle { display: grid; }
 
